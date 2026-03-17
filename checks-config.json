@@ -6,6 +6,13 @@
         "test-codebases/test-2-importantvalidations-easy"
       ],
       "enabled": true
+    },
+    {
+      "id": "aghast-py-missing-token-decorator",
+      "repositories": [
+        "test-codebases/test-7-missing-token-decorator"
+      ],
+      "enabled": true
     }
   ]
 }

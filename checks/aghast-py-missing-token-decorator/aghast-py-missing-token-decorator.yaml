@@ -1,0 +1,20 @@
+rules:
+  - id: aghast-py-missing-token-decorator
+    patterns:
+      - pattern: |
+          @$BP.route($PATH, ...)
+          def $FUNC(...):
+              ...
+      - pattern-not: |
+          @$BP.route($PATH, ...)
+          @require_api_token
+          def $FUNC(...):
+              ...
+      - metavariable-regex:
+          metavariable: $PATH
+          regex: ^(?!.*(health|ready|readiness|liveness|alive|ping|status))
+    message: >
+      Flask endpoint '$FUNC' is missing the @require_api_token decorator,
+      allowing unauthenticated access to this API endpoint.
+    languages: [python]
+    severity: ERROR
