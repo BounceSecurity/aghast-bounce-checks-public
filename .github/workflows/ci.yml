@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - run: echo semgrep > requirements.txt
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install Semgrep
+        run: pip install -r requirements.txt
+
+      - name: Verify Semgrep rules have test files
+        run: node scripts/verify-semgrep-tests.cjs
+
+      - name: Test Semgrep rules
+        run: node scripts/run-semgrep-rule-tests.cjs
