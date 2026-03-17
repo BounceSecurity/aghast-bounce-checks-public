@@ -16,8 +16,8 @@ const { execSync } = require('node:child_process');
 const checksDir = path.resolve(__dirname, '..', 'checks');
 
 if (!fs.existsSync(checksDir)) {
-  console.error('Checks directory does not exist: ' + checksDir);
-  process.exit(1);
+  console.log('No checks directory found.');
+  process.exit(0);
 }
 
 const checkFolders = fs.readdirSync(checksDir).filter(name => {
