@@ -1,0 +1,10 @@
+{
+  "id": "aghast-py-missing-token-decorator",
+  "name": "Missing API Token Decorator on Flask Endpoints",
+  "severity": "high",
+  "confidence": "high",
+  "checkTarget": {
+    "type": "semgrep-only",
+    "rules": "aghast-py-missing-token-decorator.yaml"
+  }
+}
