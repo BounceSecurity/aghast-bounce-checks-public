@@ -1,0 +1,12 @@
+rules:
+  - id: aghast-importantvalidations-mc
+    languages:
+      - python
+    severity: ERROR
+    message: |
+      API endpoint which communicates with the AI backend detected
+    pattern: |
+      def $FUNC_NAME():
+        ...
+        send_ai_query($DATA)
+        ...

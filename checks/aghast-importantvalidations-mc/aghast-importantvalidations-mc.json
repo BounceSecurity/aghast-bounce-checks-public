@@ -1,0 +1,12 @@
+{
+  "id": "aghast-importantvalidations-mc",
+  "name": "Important Validations before performing an AI query (Multi Target)",
+  "instructionsFile": "aghast-importantvalidations-mc.md",
+  "severity": "high",
+  "confidence": "medium",
+  "checkTarget": {
+    "type": "semgrep",
+    "rules": "aghast-importantvalidations-mc.yaml",
+    "maxTargets": 9999
+  }
+}

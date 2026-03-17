@@ -1,0 +1,11 @@
+{
+  "checks": [
+    {
+      "id": "aghast-importantvalidations-mc",
+      "repositories": [
+        "test-codebases/test-2-importantvalidations-easy"
+      ],
+      "enabled": true
+    }
+  ]
+}
