@@ -1,0 +1,7 @@
+{
+  "id": "aghast-js-business-logic-bypass",
+  "name": "Business Logic Bypass",
+  "instructionsFile": "aghast-js-business-logic-bypass.md",
+  "severity": "high",
+  "confidence": "medium"
+}

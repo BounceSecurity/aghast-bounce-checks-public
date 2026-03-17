@@ -13,6 +13,13 @@
         "test-codebases/test-7-missing-token-decorator"
       ],
       "enabled": true
+    },
+    {
+      "id": "aghast-js-business-logic-bypass",
+      "repositories": [
+        "test-codebases/test-8-business-logic-bypass"
+      ],
+      "enabled": true
     }
   ]
 }
