@@ -1,0 +1,14 @@
+{
+  "name": "shopeasy-platform",
+  "version": "2.4.1",
+  "description": "ShopEasy e-commerce platform API",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "helmet": "^7.1.0"
+  }
+}
