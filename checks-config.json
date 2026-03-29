@@ -20,6 +20,13 @@
         "test-codebases/test-8-business-logic-bypass"
       ],
       "enabled": true
+    },
+    {
+      "id": "aghast-sast-verify",
+      "repositories": [
+        "test-codebases/test-9-sast-false-positives"
+      ],
+      "enabled": true
     }
   ]
 }
