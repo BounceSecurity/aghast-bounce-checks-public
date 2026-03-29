@@ -1,0 +1,10 @@
+{
+  "id": "aghast-sast-verify",
+  "name": "SAST Finding Verification",
+  "instructionsFile": "aghast-sast-verify.md",
+  "severity": "high",
+  "confidence": "medium",
+  "checkTarget": {
+    "type": "sarif-verify"
+  }
+}
