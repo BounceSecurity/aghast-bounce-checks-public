@@ -27,6 +27,13 @@
         "test-codebases/test-9-sast-false-positives"
       ],
       "enabled": true
+    },
+    {
+      "id": "aghast-js-various-vulns",
+      "repositories": [
+        "test-codebases/test-10-various-vulns"
+      ],
+      "enabled": true
     }
   ]
 }

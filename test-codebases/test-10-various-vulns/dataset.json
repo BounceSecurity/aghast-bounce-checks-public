@@ -1,0 +1,1008 @@
+{
+  "name": "test-10-various-vulns-nogit",
+  "repository": "C:\\Users\\JoshGrossman\\Documents\\VMShares\\WSL\\Work\\OpenAnt\\libs\\openant-core\\parsers\\javascript",
+  "units": [
+    {
+      "id": "middleware\\auth.js:authenticateToken",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function authenticateToken(req, res, next) {\n  const authHeader = req.headers['authorization'];\n  const token = authHeader && authHeader.split(' ')[1];\n\n  if (!token) {\n    return res.status(401).json({ error: 'Authentication required' });\n  }\n\n  try {\n    const decoded = jwt.verify(token, JWT_SECRET);\n    const result = await db.query(\n      'SELECT id, email, role FROM users WHERE id = $1',\n      [decoded.userId]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(401).json({ error: 'User not found' });\n    }\n\n    req.user = result.rows[0];\n    next();\n  } catch (err) {\n    return res.status(403).json({ error: 'Invalid token' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "middleware\\auth.js",
+          "start_line": 10,
+          "end_line": 34,
+          "function_name": "authenticateToken",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "middleware\\auth.js"
+          ],
+          "original_length": 669,
+          "enhanced_length": 669
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": true,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "middleware\\auth.js:authenticateToken"
+        ],
+        "direct_callers": [
+          "middleware\\auth.js:authenticateToken"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.headers"
+    },
+    {
+      "id": "routes\\auth.js:login",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function login(req, res) {\n  const { email, password } = req.body;\n\n  if (!email || !password) {\n    return res.status(400).json({ error: 'Email and password required' });\n  }\n\n  try {\n    const result = await db.query(\n      'SELECT id, email, password_hash, role FROM users WHERE email = $1',\n      [email]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(401).json({ error: 'Invalid credentials' });\n    }\n\n    const user = result.rows[0];\n    const validPassword = await bcrypt.compare(password, user.password_hash);\n\n    if (!validPassword) {\n      return res.status(401).json({ error: 'Invalid credentials' });\n    }\n\n    const token = signToken(\n      { userId: user.id, role: user.role },\n      { expiresIn: '8h' }\n    );\n\n    res.json({ token, user: { id: user.id, email: user.email, role: user.role } });\n  } catch (err) {\n    console.error('Login error:', err);\n    res.status(500).json({ error: 'Login failed' });\n  }\n}\n\n// ========== File Boundary ==========\n\n\n\nfunction signToken(payload, options) {\n  return jwt.sign(payload, JWT_SECRET, options);\n}",
+        "primary_origin": {
+          "file_path": "routes\\auth.js",
+          "start_line": 9,
+          "end_line": 43,
+          "function_name": "login",
+          "class_name": null,
+          "enhanced": true,
+          "files_included": [
+            "routes\\auth.js",
+            "middleware\\auth.js"
+          ],
+          "original_length": 958,
+          "enhanced_length": 1091
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 1,
+          "total_downstream": 0,
+          "direct_calls": 2,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\auth.js:login",
+          "middleware\\auth.js:signToken"
+        ],
+        "direct_callers": [
+          "routes\\auth.js:login"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\auth.js:createApiKey",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function createApiKey(req, res) {\n  const { name, permissions } = req.body;\n\n  if (!name) {\n    return res.status(400).json({ error: 'API key name required' });\n  }\n\n  const validPermissions = ['read', 'write'];\n  const sanitizedPermissions = Array.isArray(permissions)\n    ? permissions.filter(p => validPermissions.includes(p))\n    : ['read'];\n  const finalPermissions = sanitizedPermissions.length > 0 ? sanitizedPermissions : ['read'];\n\n  const rawKey = `inv_${generateApiKey()}`;\n  const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');\n\n  try {\n    await db.query(\n      'INSERT INTO api_keys (user_id, name, key_hash, permissions) VALUES ($1, $2, $3, $4)',\n      [req.user.id, name, keyHash, finalPermissions]\n    );\n\n    res.status(201).json({\n      key: rawKey,\n      name,\n      message: 'Store this key securely. It cannot be retrieved again.',\n    });\n  } catch (err) {\n    console.error('API key creation error:', err);\n    res.status(500).json({ error: 'Failed to create API key' });\n  }\n}\n\n// ========== File Boundary ==========\n\n\n\nfunction generateApiKey() {\n  return crypto.randomBytes(32).toString('hex');\n}",
+        "primary_origin": {
+          "file_path": "routes\\auth.js",
+          "start_line": 45,
+          "end_line": 76,
+          "function_name": "createApiKey",
+          "class_name": null,
+          "enhanced": true,
+          "files_included": [
+            "routes\\auth.js"
+          ],
+          "original_length": 1030,
+          "enhanced_length": 1152
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 1,
+          "total_downstream": 0,
+          "direct_calls": 2,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\auth.js:createApiKey",
+          "routes\\auth.js:generateApiKey"
+        ],
+        "direct_callers": [
+          "routes\\auth.js:createApiKey"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\auth.js:requestPasswordReset",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function requestPasswordReset(req, res) {\n  const { email } = req.body;\n\n  if (!email) {\n    return res.status(400).json({ error: 'Email required' });\n  }\n\n  const resetToken = generateResetToken();\n  const expiry = new Date(Date.now() + 3600000);\n\n  try {\n    await db.query(\n      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE email = $3',\n      [resetToken, expiry, email]\n    );\n\n    res.json({ message: 'If the email exists, a reset link has been sent.' });\n  } catch (err) {\n    console.error('Password reset error:', err);\n    res.status(500).json({ error: 'Password reset failed' });\n  }\n}\n\n// ========== File Boundary ==========\n\n\n\nfunction generateResetToken() {\n  const timestamp = Date.now().toString(36);\n  const random = Math.random().toString(36).substring(2, 10);\n  return `${timestamp}-${random}`;\n}",
+        "primary_origin": {
+          "file_path": "routes\\auth.js",
+          "start_line": 78,
+          "end_line": 99,
+          "function_name": "requestPasswordReset",
+          "class_name": null,
+          "enhanced": true,
+          "files_included": [
+            "routes\\auth.js"
+          ],
+          "original_length": 625,
+          "enhanced_length": 844
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 1,
+          "total_downstream": 0,
+          "direct_calls": 2,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\auth.js:requestPasswordReset",
+          "routes\\auth.js:generateResetToken"
+        ],
+        "direct_callers": [
+          "routes\\auth.js:requestPasswordReset"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\auth.js:verifyApiKey",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function verifyApiKey(req, res) {\n  const { apiKey } = req.body;\n\n  if (!apiKey) {\n    return res.status(400).json({ error: 'API key required' });\n  }\n\n  try {\n    const keyHash = crypto.createHash('sha256').update(apiKey).digest('hex');\n    const result = await db.query(\n      'SELECT id FROM api_keys WHERE key_hash = $1 AND user_id = $2 AND revoked = false',\n      [keyHash, req.user.id]\n    );\n\n    if (result.rows.length > 0) {\n      res.json({ valid: true });\n    } else {\n      res.status(401).json({ valid: false });\n    }\n  } catch (err) {\n    res.status(500).json({ error: 'Verification failed' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\auth.js",
+          "start_line": 101,
+          "end_line": 123,
+          "function_name": "verifyApiKey",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\auth.js"
+          ],
+          "original_length": 623,
+          "enhanced_length": 623
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\auth.js:verifyApiKey"
+        ],
+        "direct_callers": [
+          "routes\\auth.js:verifyApiKey"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\orders.js:createOrder",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function createOrder(req, res) {\n  const { productId, quantity } = req.body;\n\n  if (!productId || !quantity || quantity < 1) {\n    return res.status(400).json({ error: 'Valid product ID and quantity required' });\n  }\n\n  try {\n    const product = await db.query(\n      'SELECT id, name, price, stock_count FROM products WHERE id = $1',\n      [productId]\n    );\n\n    if (product.rows.length === 0) {\n      return res.status(404).json({ error: 'Product not found' });\n    }\n\n    const item = product.rows[0];\n\n    if (item.stock_count < quantity) {\n      return res.status(409).json({ error: 'Insufficient stock' });\n    }\n\n    const totalPrice = item.price * quantity;\n\n    await db.query(\n      'UPDATE products SET stock_count = stock_count - $1 WHERE id = $2',\n      [quantity, productId]\n    );\n\n    const order = await db.query(\n      'INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES ($1, $2, $3, $4, $5) RETURNING id, status',\n      [req.user.id, productId, quantity, totalPrice, 'confirmed']\n    );\n\n    res.status(201).json({\n      orderId: order.rows[0].id,\n      product: item.name,\n      quantity,\n      totalPrice,\n      status: 'confirmed',\n    });\n  } catch (err) {\n    console.error('Order creation error:', err);\n    res.status(500).json({ error: 'Failed to create order' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\orders.js",
+          "start_line": 7,
+          "end_line": 53,
+          "function_name": "createOrder",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\orders.js"
+          ],
+          "original_length": 1334,
+          "enhanced_length": 1334
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\orders.js:createOrder"
+        ],
+        "direct_callers": [
+          "routes\\orders.js:createOrder"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\orders.js:createBulkOrder",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function createBulkOrder(req, res) {\n  const { items } = req.body;\n\n  if (!Array.isArray(items) || items.length === 0) {\n    return res.status(400).json({ error: 'Items array required' });\n  }\n\n  for (const item of items) {\n    if (!item.productId || !item.quantity || item.quantity < 1) {\n      return res.status(400).json({ error: 'Each item requires a valid productId and quantity' });\n    }\n  }\n\n  const client = await db.getClient();\n\n  try {\n    await client.query('BEGIN');\n\n    const orderResults = [];\n\n    for (const item of items) {\n      const product = await client.query(\n        'SELECT id, name, price, stock_count FROM products WHERE id = $1 FOR UPDATE',\n        [item.productId]\n      );\n\n      if (product.rows.length === 0) {\n        throw new Error(`Product ${item.productId} not found`);\n      }\n\n      const prod = product.rows[0];\n\n      if (prod.stock_count < item.quantity) {\n        throw new Error(`Insufficient stock for ${prod.name}`);\n      }\n\n      await client.query(\n        'UPDATE products SET stock_count = stock_count - $1 WHERE id = $2',\n        [item.quantity, item.productId]\n      );\n\n      const order = await client.query(\n        'INSERT INTO orders (user_id, product_id, quantity, total_price, status) VALUES ($1, $2, $3, $4, $5) RETURNING id',\n        [req.user.id, item.productId, item.quantity, prod.price * item.quantity, 'confirmed']\n      );\n\n      orderResults.push({\n        orderId: order.rows[0].id,\n        product: prod.name,\n        quantity: item.quantity,\n        totalPrice: prod.price * item.quantity,\n      });\n    }\n\n    await client.query('COMMIT');\n    res.status(201).json({ orders: orderResults });\n  } catch (err) {\n    await client.query('ROLLBACK');\n    console.error('Bulk order error:', err);\n    res.status(400).json({ error: err.message });\n  } finally {\n    client.release();\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\orders.js",
+          "start_line": 55,
+          "end_line": 118,
+          "function_name": "createBulkOrder",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\orders.js"
+          ],
+          "original_length": 1866,
+          "enhanced_length": 1866
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\orders.js:createBulkOrder"
+        ],
+        "direct_callers": [
+          "routes\\orders.js:createBulkOrder"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\orders.js:getOrder",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function getOrder(req, res) {\n  try {\n    const result = await db.query(\n      'SELECT o.*, p.name as product_name FROM orders o JOIN products p ON o.product_id = p.id WHERE o.id = $1',\n      [req.params.id]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(404).json({ error: 'Order not found' });\n    }\n\n    res.json(result.rows[0]);\n  } catch (err) {\n    console.error('Order fetch error:', err);\n    res.status(500).json({ error: 'Failed to fetch order' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\orders.js",
+          "start_line": 120,
+          "end_line": 136,
+          "function_name": "getOrder",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\orders.js"
+          ],
+          "original_length": 493,
+          "enhanced_length": 493
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\orders.js:getOrder"
+        ],
+        "direct_callers": [
+          "routes\\orders.js:getOrder"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.params"
+    },
+    {
+      "id": "routes\\products.js:listProducts",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function listProducts(req, res) {\n  const { category, minPrice, maxPrice, sort } = req.query;\n\n  try {\n    let query = 'SELECT id, name, description, price, stock_count, category FROM products WHERE 1=1';\n    const params = [];\n    let paramIndex = 1;\n\n    if (category) {\n      query += ` AND category = $${paramIndex++}`;\n      params.push(category);\n    }\n\n    if (minPrice) {\n      query += ` AND price >= $${paramIndex++}`;\n      params.push(parseFloat(minPrice));\n    }\n\n    if (maxPrice) {\n      query += ` AND price <= $${paramIndex++}`;\n      params.push(parseFloat(maxPrice));\n    }\n\n    const allowedSorts = ['name', 'price', 'stock_count', 'created_at'];\n    if (sort && allowedSorts.includes(sort)) {\n      query += ` ORDER BY ${sort}`;\n    } else {\n      query += ' ORDER BY name';\n    }\n\n    const result = await db.query(query, params);\n    res.json(result.rows);\n  } catch (err) {\n    console.error('Product listing error:', err);\n    res.status(500).json({ error: 'Failed to list products' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\products.js",
+          "start_line": 7,
+          "end_line": 43,
+          "function_name": "listProducts",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\products.js"
+          ],
+          "original_length": 1025,
+          "enhanced_length": 1025
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\products.js:listProducts"
+        ],
+        "direct_callers": [
+          "routes\\products.js:listProducts"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.query"
+    },
+    {
+      "id": "routes\\products.js:createProduct",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function createProduct(req, res) {\n  const { name, description, price, stockCount, category } = req.body;\n\n  if (!name || price === undefined || stockCount === undefined) {\n    return res.status(400).json({ error: 'Name, price, and stock count required' });\n  }\n\n  try {\n    const result = await db.query(\n      'INSERT INTO products (name, description, price, stock_count, category) VALUES ($1, $2, $3, $4, $5) RETURNING *',\n      [name, description, price, stockCount, category]\n    );\n\n    res.status(201).json(result.rows[0]);\n  } catch (err) {\n    console.error('Product creation error:', err);\n    res.status(500).json({ error: 'Failed to create product' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\products.js",
+          "start_line": 45,
+          "end_line": 63,
+          "function_name": "createProduct",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\products.js"
+          ],
+          "original_length": 678,
+          "enhanced_length": 678
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\products.js:createProduct"
+        ],
+        "direct_callers": [
+          "routes\\products.js:createProduct"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\products.js:updateProduct",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function updateProduct(req, res) {\n  const { name, description, price, stockCount, category } = req.body;\n\n  try {\n    const result = await db.query(\n      'UPDATE products SET name = COALESCE($1, name), description = COALESCE($2, description), price = COALESCE($3, price), stock_count = COALESCE($4, stock_count), category = COALESCE($5, category) WHERE id = $6 RETURNING *',\n      [name, description, price, stockCount, category, req.params.id]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(404).json({ error: 'Product not found' });\n    }\n\n    res.json(result.rows[0]);\n  } catch (err) {\n    console.error('Product update error:', err);\n    res.status(500).json({ error: 'Failed to update product' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\products.js",
+          "start_line": 65,
+          "end_line": 83,
+          "function_name": "updateProduct",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\products.js"
+          ],
+          "original_length": 740,
+          "enhanced_length": 740
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\products.js:updateProduct"
+        ],
+        "direct_callers": [
+          "routes\\products.js:updateProduct"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\reports.js:exportReport",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function exportReport(req, res) {\n  const { reportType, dateRange, format } = req.body;\n\n  if (!reportType || !dateRange) {\n    return res.status(400).json({ error: 'Report type and date range required' });\n  }\n\n  const validTypes = ['inventory', 'orders', 'revenue'];\n  if (!validTypes.includes(reportType)) {\n    return res.status(400).json({ error: 'Invalid report type' });\n  }\n\n  try {\n    let data;\n\n    if (reportType === 'inventory') {\n      const result = await db.query(\n        'SELECT name, stock_count, price, category FROM products ORDER BY category, name'\n      );\n      data = result.rows;\n    } else if (reportType === 'orders') {\n      const result = await db.query(\n        'SELECT o.id, o.quantity, o.total_price, o.status, o.created_at, p.name as product FROM orders o JOIN products p ON o.product_id = p.id WHERE o.created_at BETWEEN $1 AND $2 ORDER BY o.created_at DESC',\n        [dateRange.start, dateRange.end]\n      );\n      data = result.rows;\n    } else {\n      const result = await db.query(\n        'SELECT DATE(created_at) as date, SUM(total_price) as revenue, COUNT(*) as order_count FROM orders WHERE created_at BETWEEN $1 AND $2 GROUP BY DATE(created_at) ORDER BY date',\n        [dateRange.start, dateRange.end]\n      );\n      data = result.rows;\n    }\n\n    const exportUrl = `${REPORT_SERVICE_BASE}/api/render`;\n    const response = await fetch(exportUrl, {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Service-Auth': process.env.REPORT_SERVICE_KEY,\n      },\n      body: JSON.stringify({ data, format: format || 'pdf', reportType }),\n    });\n\n    if (!response.ok) {\n      throw new Error(`Report service returned ${response.status}`);\n    }\n\n    const result = await response.json();\n    res.json({ downloadUrl: result.url, expiresAt: result.expiresAt });\n  } catch (err) {\n    console.error('Report export error:', err);\n    res.status(500).json({ error: 'Failed to export report' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\reports.js",
+          "start_line": 10,
+          "end_line": 64,
+          "function_name": "exportReport",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\reports.js"
+          ],
+          "original_length": 1984,
+          "enhanced_length": 1984
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\reports.js:exportReport"
+        ],
+        "direct_callers": [
+          "routes\\reports.js:exportReport"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\reports.js:exportCustomReport",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function exportCustomReport(req, res) {\n  const { query, exportEndpoint } = req.body;\n\n  if (!query) {\n    return res.status(400).json({ error: 'Query required' });\n  }\n\n  try {\n    const result = await db.query(query);\n\n    const targetUrl = exportEndpoint || `${REPORT_SERVICE_BASE}/api/render`;\n    const response = await fetch(targetUrl, {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Service-Auth': process.env.REPORT_SERVICE_KEY,\n      },\n      body: JSON.stringify({ data: result.rows, format: 'csv' }),\n    });\n\n    if (!response.ok) {\n      throw new Error(`Export endpoint returned ${response.status}`);\n    }\n\n    const exportResult = await response.json();\n    res.json({ downloadUrl: exportResult.url });\n  } catch (err) {\n    console.error('Custom export error:', err);\n    res.status(500).json({ error: 'Failed to run custom export' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\reports.js",
+          "start_line": 66,
+          "end_line": 96,
+          "function_name": "exportCustomReport",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\reports.js"
+          ],
+          "original_length": 914,
+          "enhanced_length": 914
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\reports.js:exportCustomReport"
+        ],
+        "direct_callers": [
+          "routes\\reports.js:exportCustomReport"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\users.js:updateUser",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function updateUser(req, res) {\n  const targetUserId = parseInt(req.params.id, 10);\n\n  if (req.user.id !== targetUserId && req.user.role !== 'admin') {\n    return res.status(403).json({ error: 'Cannot modify other users' });\n  }\n\n  const updates = req.body;\n  const allowedFields = ['name', 'email', 'department', 'role', 'notification_preferences'];\n\n  const setClauses = [];\n  const values = [];\n  let paramIndex = 1;\n\n  for (const [key, value] of Object.entries(updates)) {\n    if (allowedFields.includes(key)) {\n      setClauses.push(`${key} = $${paramIndex++}`);\n      values.push(typeof value === 'object' ? JSON.stringify(value) : value);\n    }\n  }\n\n  if (setClauses.length === 0) {\n    return res.status(400).json({ error: 'No valid fields to update' });\n  }\n\n  values.push(targetUserId);\n\n  try {\n    const result = await db.query(\n      `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${paramIndex} RETURNING id, email, name, role, department`,\n      values\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(404).json({ error: 'User not found' });\n    }\n\n    res.json(result.rows[0]);\n  } catch (err) {\n    console.error('User update error:', err);\n    res.status(500).json({ error: 'Failed to update user' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\users.js",
+          "start_line": 26,
+          "end_line": 68,
+          "function_name": "updateUser",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\users.js"
+          ],
+          "original_length": 1259,
+          "enhanced_length": 1259
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\users.js:updateUser"
+        ],
+        "direct_callers": [
+          "routes\\users.js:updateUser"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.params"
+    },
+    {
+      "id": "routes\\users.js:createUser",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function createUser(req, res) {\n  const { email, password, name, role, department } = req.body;\n\n  if (!email || !password || !name) {\n    return res.status(400).json({ error: 'Email, password, and name required' });\n  }\n\n  const validRoles = ['viewer', 'operator', 'manager', 'admin'];\n  const userRole = validRoles.includes(role) ? role : 'viewer';\n\n  try {\n    const passwordHash = await bcrypt.hash(password, 12);\n\n    const result = await db.query(\n      'INSERT INTO users (email, password_hash, name, role, department) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, name, role, department',\n      [email, passwordHash, name, userRole, department]\n    );\n\n    res.status(201).json(result.rows[0]);\n  } catch (err) {\n    if (err.code === '23505') {\n      return res.status(409).json({ error: 'Email already exists' });\n    }\n    console.error('User creation error:', err);\n    res.status(500).json({ error: 'Failed to create user' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\users.js",
+          "start_line": 70,
+          "end_line": 96,
+          "function_name": "createUser",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\users.js"
+          ],
+          "original_length": 955,
+          "enhanced_length": 955
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\users.js:createUser"
+        ],
+        "direct_callers": [
+          "routes\\users.js:createUser"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\users.js:changePassword",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function changePassword(req, res) {\n  const targetUserId = parseInt(req.params.id, 10);\n  const { currentPassword, newPassword } = req.body;\n\n  if (req.user.id !== targetUserId) {\n    return res.status(403).json({ error: 'Cannot change other users\\' passwords' });\n  }\n\n  if (!currentPassword || !newPassword) {\n    return res.status(400).json({ error: 'Current and new passwords required' });\n  }\n\n  if (newPassword.length < 8) {\n    return res.status(400).json({ error: 'Password must be at least 8 characters' });\n  }\n\n  try {\n    const result = await db.query(\n      'SELECT password_hash FROM users WHERE id = $1',\n      [targetUserId]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(404).json({ error: 'User not found' });\n    }\n\n    const valid = await bcrypt.compare(currentPassword, result.rows[0].password_hash);\n    if (!valid) {\n      return res.status(401).json({ error: 'Current password is incorrect' });\n    }\n\n    const newHash = await bcrypt.hash(newPassword, 12);\n    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, targetUserId]);\n\n    res.json({ message: 'Password updated successfully' });\n  } catch (err) {\n    console.error('Password change error:', err);\n    res.status(500).json({ error: 'Failed to change password' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\users.js",
+          "start_line": 98,
+          "end_line": 137,
+          "function_name": "changePassword",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\users.js"
+          ],
+          "original_length": 1309,
+          "enhanced_length": 1309
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\users.js:changePassword"
+        ],
+        "direct_callers": [
+          "routes\\users.js:changePassword"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.params"
+    },
+    {
+      "id": "routes\\webhooks.js:registerWebhook",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function registerWebhook(req, res) {\n  const { name, url, events } = req.body;\n\n  if (!name || !url || !events) {\n    return res.status(400).json({ error: 'Name, URL, and events required' });\n  }\n\n  if (!Array.isArray(events) || events.length === 0) {\n    return res.status(400).json({ error: 'At least one event type required' });\n  }\n\n  const webhookSecret = crypto.randomBytes(32).toString('hex');\n\n  try {\n    const result = await db.query(\n      'INSERT INTO webhooks (user_id, name, url, events, secret) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, url, events',\n      [req.user.id, name, url, JSON.stringify(events), webhookSecret]\n    );\n\n    res.status(201).json({\n      ...result.rows[0],\n      secret: webhookSecret,\n      message: 'Store the secret securely for signature verification.',\n    });\n  } catch (err) {\n    console.error('Webhook creation error:', err);\n    res.status(500).json({ error: 'Failed to create webhook' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\webhooks.js",
+          "start_line": 15,
+          "end_line": 43,
+          "function_name": "registerWebhook",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\webhooks.js"
+          ],
+          "original_length": 958,
+          "enhanced_length": 958
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\webhooks.js:registerWebhook"
+        ],
+        "direct_callers": [
+          "routes\\webhooks.js:registerWebhook"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    },
+    {
+      "id": "routes\\webhooks.js:testWebhook",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function testWebhook(req, res) {\n  try {\n    const result = await db.query(\n      'SELECT id, url, secret FROM webhooks WHERE id = $1 AND user_id = $2',\n      [req.params.id, req.user.id]\n    );\n\n    if (result.rows.length === 0) {\n      return res.status(404).json({ error: 'Webhook not found' });\n    }\n\n    const webhook = result.rows[0];\n    const testPayload = {\n      event: 'test',\n      timestamp: new Date().toISOString(),\n      data: { message: 'This is a test webhook delivery' },\n    };\n\n    const signature = crypto\n      .createHmac('sha256', webhook.secret)\n      .update(JSON.stringify(testPayload))\n      .digest('hex');\n\n    const response = await fetch(webhook.url, {\n      method: 'POST',\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Webhook-Signature': signature,\n      },\n      body: JSON.stringify(testPayload),\n      timeout: 10000,\n    });\n\n    res.json({\n      delivered: true,\n      statusCode: response.status,\n      message: 'Test webhook sent successfully',\n    });\n  } catch (err) {\n    console.error('Webhook test error:', err);\n    res.json({\n      delivered: false,\n      error: err.message,\n      message: 'Failed to deliver test webhook',\n    });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\webhooks.js",
+          "start_line": 45,
+          "end_line": 91,
+          "function_name": "testWebhook",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\webhooks.js"
+          ],
+          "original_length": 1223,
+          "enhanced_length": 1223
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\webhooks.js:testWebhook"
+        ],
+        "direct_callers": [
+          "routes\\webhooks.js:testWebhook"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.params"
+    },
+    {
+      "id": "routes\\webhooks.js:sendNotification",
+      "unit_type": "route_handler",
+      "code": {
+        "primary_code": "\n\nasync function sendNotification(req, res) {\n  const { url, payload } = req.body;\n\n  if (!url || !payload) {\n    return res.status(400).json({ error: 'URL and payload required' });\n  }\n\n  try {\n    const parsedUrl = new URL(url);\n    const isDomainAllowed = ALLOWED_WEBHOOK_DOMAINS.some(\n      domain => parsedUrl.hostname === domain\n    );\n\n    if (!isDomainAllowed) {\n      return res.status(403).json({ error: 'Domain not in allowlist' });\n    }\n\n    const response = await fetch(url, {\n      method: 'POST',\n      headers: { 'Content-Type': 'application/json' },\n      body: JSON.stringify(payload),\n      timeout: 5000,\n    });\n\n    res.json({\n      delivered: response.ok,\n      statusCode: response.status,\n    });\n  } catch (err) {\n    console.error('Notification error:', err);\n    res.status(500).json({ error: 'Failed to send notification' });\n  }\n}",
+        "primary_origin": {
+          "file_path": "routes\\webhooks.js",
+          "start_line": 93,
+          "end_line": 125,
+          "function_name": "sendNotification",
+          "class_name": null,
+          "enhanced": false,
+          "files_included": [
+            "routes\\webhooks.js"
+          ],
+          "original_length": 861,
+          "enhanced_length": 861
+        },
+        "dependencies": [],
+        "dependency_metadata": {
+          "depth": 3,
+          "total_upstream": 0,
+          "total_downstream": 0,
+          "direct_calls": 1,
+          "direct_callers": 1
+        }
+      },
+      "route": null,
+      "ground_truth": {
+        "status": "UNKNOWN",
+        "vulnerability_types": [],
+        "issues": [],
+        "annotation_source": null,
+        "annotation_key": null,
+        "notes": null
+      },
+      "metadata": {
+        "is_exported": false,
+        "export_type": null,
+        "generator": "unit_generator.js",
+        "direct_calls": [
+          "routes\\webhooks.js:sendNotification"
+        ],
+        "direct_callers": [
+          "routes\\webhooks.js:sendNotification"
+        ]
+      },
+      "reachable": true,
+      "is_entry_point": true,
+      "entry_point_reason": "input_pattern:req.body"
+    }
+  ],
+  "statistics": {
+    "totalUnits": 27,
+    "byType": {
+      "function": 5,
+      "route_handler": 22
+    },
+    "callGraph": {
+      "totalEdges": 28,
+      "avgOutDegree": "1.04",
+      "avgInDegree": "1.04",
+      "maxOutDegree": 2,
+      "maxInDegree": 2,
+      "isolatedFunctions": 2
+    },
+    "unitsWithUpstream": 3,
+    "unitsWithDownstream": 3
+  },
+  "metadata": {
+    "generator": "unit_generator.js",
+    "generated_at": "2026-03-30T14:05:04.642Z",
+    "dependency_depth": 3,
+    "reachability_filter": {
+      "original_units": 27,
+      "entry_points": 19,
+      "reachable_units": 19,
+      "filtered_out": 8,
+      "reduction_percentage": 29.6
+    }
+  }
+}

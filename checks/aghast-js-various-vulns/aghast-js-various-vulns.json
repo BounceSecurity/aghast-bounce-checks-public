@@ -1,0 +1,11 @@
+{
+  "id": "aghast-js-various-vulns",
+  "name": "Various Security Vulnerabilities",
+  "severity": "high",
+  "confidence": "medium",
+  "model": "sonnet",
+  "checkTarget": {
+    "type": "openant-units",
+    "concurrency": 10
+  }
+}
