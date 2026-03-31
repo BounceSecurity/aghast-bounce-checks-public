@@ -1,0 +1,11 @@
+{
+  "id": "aghast-openant-various-vulns",
+  "name": "Various Security Vulnerabilities (OpenAnt Example)",
+  "severity": "high",
+  "confidence": "medium",
+  "model": "sonnet",
+  "checkTarget": {
+    "type": "openant-units",
+    "concurrency": 10
+  }
+}
