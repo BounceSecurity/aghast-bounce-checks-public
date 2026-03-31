@@ -1,6 +1,6 @@
 {
   "id": "aghast-importantvalidations-mc",
-  "name": "Important Validations before performing an AI query (Multi Target)",
+  "name": "Important Validations before performing an AI query (Targeted)",
   "instructionsFile": "aghast-importantvalidations-mc.md",
   "severity": "high",
   "confidence": "medium",
