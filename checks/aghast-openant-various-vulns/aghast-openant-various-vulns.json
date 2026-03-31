@@ -5,7 +5,8 @@
   "confidence": "medium",
   "model": "sonnet",
   "checkTarget": {
-    "type": "openant-units",
+    "type": "targeted",
+    "discovery": "openant",
     "concurrency": 10
   }
 }

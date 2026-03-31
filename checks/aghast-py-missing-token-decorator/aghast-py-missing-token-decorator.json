@@ -4,7 +4,8 @@
   "severity": "high",
   "confidence": "high",
   "checkTarget": {
-    "type": "semgrep-only",
+    "type": "static",
+    "discovery": "semgrep",
     "rules": "aghast-py-missing-token-decorator.yaml"
   }
 }

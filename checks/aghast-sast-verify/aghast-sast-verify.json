@@ -5,6 +5,8 @@
   "severity": "high",
   "confidence": "medium",
   "checkTarget": {
-    "type": "sarif-verify"
+    "type": "targeted",
+    "discovery": "sarif",
+    "sarifFile": "./sast-results.sarif"
   }
 }

@@ -5,7 +5,8 @@
   "severity": "high",
   "confidence": "medium",
   "checkTarget": {
-    "type": "semgrep",
+    "type": "targeted",
+    "discovery": "semgrep",
     "rules": "aghast-importantvalidations-mc.yaml",
     "maxTargets": 9999
   }
