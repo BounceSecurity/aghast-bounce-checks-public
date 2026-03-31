@@ -1,7 +1,6 @@
 {
   "id": "aghast-openant-various-vulns",
   "name": "Various Security Vulnerabilities (OpenAnt Example)",
-  "instructionsFile": "aghast-openant-various-vulns.md",
   "severity": "high",
   "confidence": "medium",
   "model": "sonnet",
