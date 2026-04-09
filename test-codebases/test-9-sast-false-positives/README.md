@@ -1,6 +1,6 @@
 # Test Codebase: SAST Finding Verification
 
-A minimal Flask application designed to test sarif-verify checks. Contains routes that handle user input in various ways across common vulnerability categories.
+A minimal Flask application designed to test targeted checks with SARIF discovery. Contains routes that handle user input in various ways across common vulnerability categories.
 
 ## Routes
 
