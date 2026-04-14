@@ -11,24 +11,6 @@
       },
       "results": [
         {
-          "ruleId": "xss-001",
-          "message": {
-            "text": "Potential Cross-Site Scripting (XSS): User input from request.args is rendered in an HTML template via render_template_string."
-          },
-          "locations": [
-            {
-              "physicalLocation": {
-                "artifactLocation": { "uri": "app/routes/search.py" },
-                "region": {
-                  "startLine": 11,
-                  "endLine": 15,
-                  "snippet": { "text": "    query = request.args.get(\"q\", \"\")\n    return render_template_string(\n        '<h1>Results for: {{ query }}</h1>',\n        query=query,\n    )" }
-                }
-              }
-            }
-          ]
-        },
-        {
           "ruleId": "xss-002",
           "message": {
             "text": "Potential Cross-Site Scripting (XSS): HTML content created with Markup() may bypass template autoescaping."
@@ -38,9 +20,9 @@
               "physicalLocation": {
                 "artifactLocation": { "uri": "app/routes/search.py" },
                 "region": {
-                  "startLine": 20,
-                  "endLine": 21,
-                  "snippet": { "text": "    banner = Markup(\"<strong>Welcome to the help page</strong>\")\n    return render_template_string(\"{{ banner }}\", banner=banner)" }
+                  "startLine": 17,
+                  "endLine": 18,
+                  "snippet": { "text": "    banner = Markup(\"<strong>Welcome to the help page</strong>\")\n    return render_template(\"help.html\", banner=banner)" }
                 }
               }
             }
@@ -56,8 +38,8 @@
               "physicalLocation": {
                 "artifactLocation": { "uri": "app/routes/search.py" },
                 "region": {
-                  "startLine": 26,
-                  "endLine": 28,
+                  "startLine": 23,
+                  "endLine": 25,
                   "snippet": { "text": "    user_input = request.args.get(\"msg\", \"\")\n    response = make_response(f\"<p>You said: {user_input}</p>\")\n    response.headers[\"Content-Type\"] = \"text/html\"" }
                 }
               }

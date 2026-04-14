@@ -1,6 +1,6 @@
 """Search routes for the application."""
 
-from flask import Blueprint, request, render_template_string, make_response
+from flask import Blueprint, request, render_template, make_response
 from markupsafe import Markup
 
 bp = Blueprint("search", __name__)
@@ -9,16 +9,13 @@ bp = Blueprint("search", __name__)
 @bp.route("/search")
 def search_results():
     query = request.args.get("q", "")
-    return render_template_string(
-        '<h1>Results for: {{ query }}</h1>',
-        query=query,
-    )
+    return render_template("search_results.html", query=query)
 
 
 @bp.route("/help")
 def help_page():
     banner = Markup("<strong>Welcome to the help page</strong>")
-    return render_template_string("{{ banner }}", banner=banner)
+    return render_template("help.html", banner=banner)
 
 
 @bp.route("/echo")
