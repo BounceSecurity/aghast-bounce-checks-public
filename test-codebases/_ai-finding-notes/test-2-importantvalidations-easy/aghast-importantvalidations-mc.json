@@ -1,0 +1,18 @@
+{
+  "checkId": "aghast-importantvalidations-mc",
+  "codebase": "test-2-importantvalidations-easy",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 2,
+  "findings": [
+    {
+      "file": "routes/run.py",
+      "startLine": 8,
+      "lineTolerance": 10
+    },
+    {
+      "file": "routes/execute.py",
+      "startLine": 8,
+      "lineTolerance": 10
+    }
+  ]
+}

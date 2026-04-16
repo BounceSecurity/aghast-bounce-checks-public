@@ -1,0 +1,23 @@
+{
+  "checkId": "aghast-sast-verify",
+  "codebase": "test-9-sast-false-positives",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 3,
+  "findings": [
+    {
+      "file": "app/routes/search.py",
+      "startLine": 23,
+      "lineTolerance": 5
+    },
+    {
+      "file": "app/routes/redirect_handler.py",
+      "startLine": 26,
+      "lineTolerance": 5
+    },
+    {
+      "file": "app/routes/proxy.py",
+      "startLine": 19,
+      "lineTolerance": 5
+    }
+  ]
+}
