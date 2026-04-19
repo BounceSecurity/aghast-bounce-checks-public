@@ -173,7 +173,7 @@ export function allChecksStatic(configDir: string, checkIds: string[]): boolean 
   return checkIds.length > 0 && checkIds.every(id => isStaticCheck(configDir, id));
 }
 
-export type CheckType = 'static' | 'targeted-semgrep' | 'targeted-sarif' | 'targeted-openant' | 'repository';
+export type CheckType = 'static' | 'targeted-semgrep' | 'targeted-sarif' | 'targeted-openant' | 'targeted-diff-semgrep' | 'repository';
 
 export function resolveCheckType(def: { checkTarget?: { type?: string; discovery?: string } }): CheckType {
   const type = def.checkTarget?.type;
@@ -182,6 +182,7 @@ export function resolveCheckType(def: { checkTarget?: { type?: string; discovery
   if (type === 'targeted') {
     if (discovery === 'sarif') return 'targeted-sarif';
     if (discovery === 'openant') return 'targeted-openant';
+    if (discovery === 'diff-semgrep') return 'targeted-diff-semgrep';
     return 'targeted-semgrep';
   }
   return 'repository';
@@ -215,6 +216,12 @@ export function getDatasetFilePath(codebasePath: string): string | undefined {
   return undefined;
 }
 
+export function getDiffFilePath(codebasePath: string): string | undefined {
+  const diffFile = join(codebasePath, 'example.diff');
+  if (existsSync(diffFile)) return diffFile;
+  return undefined;
+}
+
 /** Quote a shell argument if it contains spaces or special characters. */
 export function shellQuote(arg: string): string {
   if (/^[\w.:/\\=-]+$/.test(arg)) return arg;
@@ -231,7 +238,7 @@ export function runScan(
   config: RegressionConfig,
   codebasePath: string,
   outputPath: string,
-  options?: { modelOverride?: string; mockAi?: boolean; sarifFile?: string; datasetFile?: string },
+  options?: { modelOverride?: string; mockAi?: boolean; sarifFile?: string; datasetFile?: string; diffFile?: string },
 ): { success: boolean; error: string } {
   const args = config.useInstalled
     ? [
@@ -254,8 +261,8 @@ export function runScan(
     args.push('--sarif-file', options.sarifFile);
   }
 
-  if (options?.datasetFile) {
-    args.push('--openant-dataset', options.datasetFile);
+  if (options?.diffFile) {
+    args.push('--diff-file', options.diffFile);
   }
 
   if (config.aiProvider) {
@@ -276,6 +283,9 @@ export function runScan(
   }
   if (options?.mockAi) {
     env.AGHAST_MOCK_AI = 'true';
+  }
+  if (options?.datasetFile) {
+    env.AGHAST_MOCK_OPENANT = options.datasetFile;
   }
 
   const cmd = args.map(shellQuote).join(' ');
@@ -510,12 +520,18 @@ export function runCodebaseScan(
   const openantCheck = checkIds.find(id => getCheckType(config.configDir, id) === 'targeted-openant');
   const datasetFile = openantCheck ? getDatasetFilePath(codebasePath) : undefined;
 
+  // Detect targeted-diff-semgrep checks and resolve the diff + dataset file paths
+  const diffSemgrepCheck = checkIds.find(id => getCheckType(config.configDir, id) === 'targeted-diff-semgrep');
+  const diffFile = diffSemgrepCheck ? getDiffFilePath(codebasePath) : undefined;
+  const diffDatasetFile = diffSemgrepCheck ? getDatasetFilePath(codebasePath) : undefined;
+
   const scanStart = Date.now();
   const { success, error } = runScan(config, codebasePath, outputPath, {
     modelOverride,
     mockAi: staticOnly,
     sarifFile,
-    datasetFile,
+    datasetFile: datasetFile ?? diffDatasetFile,
+    diffFile,
   });
   const scanDuration = ((Date.now() - scanStart) / 1000).toFixed(1);
 
