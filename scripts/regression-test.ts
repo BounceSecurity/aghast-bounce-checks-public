@@ -285,7 +285,7 @@ export function runScan(
     env.AGHAST_MOCK_AI = 'true';
   }
   if (options?.datasetFile) {
-    env.AGHAST_MOCK_OPENANT = options.datasetFile;
+    env.AGHAST_OPENANT_DATASET = options.datasetFile;
   }
 
   const cmd = args.map(shellQuote).join(' ');
