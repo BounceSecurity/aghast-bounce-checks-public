@@ -9,7 +9,7 @@
  *   npx tsx scripts/regression-test.ts --dry-run                         (show what would run)
  *   npx tsx scripts/regression-test.ts --static-only                     (static checks only, no API key)
  *   npx tsx scripts/regression-test.ts --codebase test-9-sast-false-positives
- *   npx tsx scripts/regression-test.ts --ai-provider opencode --model opencode/big-pickle
+ *   npx tsx scripts/regression-test.ts --agent-provider opencode --model opencode/big-pickle
  *   npx tsx scripts/regression-test.ts --log-level debug
  *   npx tsx scripts/regression-test.ts --installed                       (use globally installed aghast)
  *
@@ -41,7 +41,7 @@ export interface ExpectedFinding {
 export interface ScanResults {
   checks: CheckResult[];
   issues: ActualIssue[];
-  aiProvider?: { models: string[] };
+  agentProvider?: { models: string[] };
 }
 
 export interface CheckResult {
@@ -92,8 +92,8 @@ export interface RegressionConfig {
   tmpDir: string;
   /** Use globally installed aghast binary instead of local source */
   useInstalled: boolean;
-  /** AI provider override (e.g. 'opencode') */
-  aiProvider?: string;
+  /** Agent provider override (e.g. 'opencode') */
+  agentProvider?: string;
   /** Model override (e.g. 'opencode/big-pickle') */
   modelOverride?: string;
   /** Log level to pass to scanner */
@@ -265,8 +265,8 @@ export function runScan(
     args.push('--diff-file', options.diffFile);
   }
 
-  if (config.aiProvider) {
-    args.push('--ai-provider', config.aiProvider);
+  if (config.agentProvider) {
+    args.push('--agent-provider', config.agentProvider);
   }
 
   if (config.modelOverride) {
@@ -463,7 +463,7 @@ export function parseConfig(argv: string[], configDir: string): RegressionConfig
     findingNotesDir: resolve(configDir, 'test-codebases', '_ai-finding-notes'),
     tmpDir: resolve(configDir, 'tmp', 'regression'),
     useInstalled: argv.includes('--installed'),
-    aiProvider: parseArgValue(argv, '--ai-provider', 'opencode'),
+    agentProvider: parseArgValue(argv, '--agent-provider', 'opencode'),
     modelOverride: parseArgValue(argv, '--model', 'opencode/big-pickle'),
     logLevel: parseArgValue(argv, '--log-level', 'debug'),
     codebaseFilter: parseArgValue(argv, '--codebase', 'test-9-sast-false-positives'),
@@ -582,8 +582,8 @@ export function runCodebaseScan(
   }
 
   // Track models used
-  if (scanResults.aiProvider?.models) {
-    for (const m of scanResults.aiProvider.models) {
+  if (scanResults.agentProvider?.models) {
+    for (const m of scanResults.agentProvider.models) {
       if (!modelsUsed.includes(m)) modelsUsed.push(m);
     }
   }
