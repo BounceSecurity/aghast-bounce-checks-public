@@ -17,7 +17,7 @@
  * (e.g. the private checks-config regression-test that adds interactive features).
  */
 
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { readFileSync, readdirSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -231,15 +231,20 @@ export function shellQuote(arg: string): string {
   return `'${arg.replace(/'/g, "'\\''")}'`;
 }
 
-// Uses execSync (shell command string) instead of execFileSync because:
-// - execFileSync cannot execute npm on Windows (.cmd files require a shell)
-// - execFileSync with shell:true + args array triggers DEP0190 in Node.js 22+
-export function runScan(
+// Uses spawn (shell command string) instead of execSync because:
+// - We need to kill the entire process tree on timeout. execSync's `timeout` option
+//   on Windows only kills the spawned cmd.exe — child processes (npm, tsx, opencode
+//   server, AI workers) survive as orphans, leak logs into subsequent scans, and
+//   may exhaust API quota.
+// - Shell is required: execFileSync cannot execute npm on Windows (.cmd files
+//   require a shell), and execFileSync with shell:true + args array triggers
+//   DEP0190 in Node.js 22+.
+export async function runScan(
   config: RegressionConfig,
   codebasePath: string,
   outputPath: string,
   options?: { modelOverride?: string; mockAi?: boolean; sarifFile?: string; datasetFile?: string; diffFile?: string },
-): { success: boolean; error: string } {
+): Promise<{ success: boolean; error: string }> {
   const args = config.useInstalled
     ? [
         'aghast', 'scan',
@@ -289,19 +294,57 @@ export function runScan(
   }
 
   const cmd = args.map(shellQuote).join(' ');
+  const TIMEOUT_MS = 600_000;
 
-  try {
-    execSync(cmd, {
-      cwd: config.scannerDir,
-      timeout: 600_000,
-      stdio: ['pipe', 'inherit', 'inherit'],
-      env,
+  const child = spawn(cmd, {
+    cwd: config.scannerDir,
+    env,
+    shell: true,
+    stdio: ['pipe', 'inherit', 'inherit'],
+    // detached on POSIX puts the child in its own process group so we can signal
+    // the whole group via kill(-pid). On Windows we use taskkill /T /F instead.
+    detached: process.platform !== 'win32',
+  });
+
+  let timedOut = false;
+  const killTree = () => {
+    if (child.pid === undefined) return;
+    if (process.platform === 'win32') {
+      try {
+        execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
+      } catch {
+        // Tree may already be gone.
+      }
+    } else {
+      try {
+        process.kill(-child.pid, 'SIGTERM');
+      } catch {
+        // Group may already be gone.
+      }
+    }
+  };
+
+  const timer = setTimeout(() => {
+    timedOut = true;
+    killTree();
+  }, TIMEOUT_MS);
+
+  return new Promise((resolveResult) => {
+    child.on('exit', (code, signal) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        resolveResult({ success: false, error: `Scan timed out after ${TIMEOUT_MS / 1000}s; killed process tree` });
+      } else if (code === 0) {
+        resolveResult({ success: true, error: '' });
+      } else {
+        resolveResult({ success: false, error: `Scan exited with code ${code ?? signal}` });
+      }
     });
-    return { success: true, error: '' };
-  } catch (err: unknown) {
-    const execErr = err as { status?: number; message?: string };
-    return { success: false, error: execErr.message ?? 'Unknown error' };
-  }
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      resolveResult({ success: false, error: err.message });
+    });
+  });
 }
 
 export function matchLocations(
@@ -474,7 +517,7 @@ export function parseConfig(argv: string[], configDir: string): RegressionConfig
 
 // --- Core scan runner ---
 
-export function runCodebaseScan(
+export async function runCodebaseScan(
   config: RegressionConfig,
   allResults: Map<string, ComparisonResult>,
   modelsUsed: string[],
@@ -482,7 +525,7 @@ export function runCodebaseScan(
   expectations: ExpectedResult[],
   label: string,
   modelOverride?: string,
-): void {
+): Promise<void> {
   const codebasePath = resolve(config.configDir, 'test-codebases', codebase);
   const outputPath = join(config.tmpDir, `${codebase}.json`);
 
@@ -526,7 +569,7 @@ export function runCodebaseScan(
   const diffDatasetFile = diffSemgrepCheck ? getDatasetFilePath(codebasePath) : undefined;
 
   const scanStart = Date.now();
-  const { success, error } = runScan(config, codebasePath, outputPath, {
+  const { success, error } = await runScan(config, codebasePath, outputPath, {
     modelOverride,
     mockAi: staticOnly,
     sarifFile,
@@ -688,7 +731,7 @@ export async function runRegressionTest(config: RegressionConfig): Promise<RunRe
   const codebaseTotal = byCodebase.size;
   for (const [codebase, expectations] of byCodebase) {
     codebaseIdx++;
-    runCodebaseScan(config, allResults, modelsUsed, codebase, expectations, `[${codebaseIdx}/${codebaseTotal}]`);
+    await runCodebaseScan(config, allResults, modelsUsed, codebase, expectations, `[${codebaseIdx}/${codebaseTotal}]`);
   }
 
   // --- Summary ---
