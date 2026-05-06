@@ -11,6 +11,7 @@
  *   npx tsx scripts/regression-test.ts --codebase test-9-sast-false-positives
  *   npx tsx scripts/regression-test.ts --agent-provider opencode --model opencode/big-pickle
  *   npx tsx scripts/regression-test.ts --log-level debug
+ *   npx tsx scripts/regression-test.ts --log-file regression.log        (write trace log to file)
  *   npx tsx scripts/regression-test.ts --installed                       (use globally installed aghast)
  *
  * This module also exports core functions for use by wrapper scripts
@@ -98,6 +99,8 @@ export interface RegressionConfig {
   modelOverride?: string;
   /** Log level to pass to scanner */
   logLevel?: string;
+  /** Log file path to pass to scanner (written at trace level) */
+  logFile?: string;
   /** Run only this codebase */
   codebaseFilter?: string;
   /** Run only static checks (no AI) */
@@ -280,6 +283,10 @@ export async function runScan(
 
   if (config.logLevel) {
     args.push('--log-level', config.logLevel);
+  }
+
+  if (config.logFile) {
+    args.push('--log-file', config.logFile);
   }
 
   const env = { ...process.env };
@@ -509,6 +516,7 @@ export function parseConfig(argv: string[], configDir: string): RegressionConfig
     agentProvider: parseArgValue(argv, '--agent-provider', 'opencode'),
     modelOverride: parseArgValue(argv, '--model', 'opencode/big-pickle'),
     logLevel: parseArgValue(argv, '--log-level', 'debug'),
+    logFile: parseArgValue(argv, '--log-file', 'regression.log'),
     codebaseFilter: parseArgValue(argv, '--codebase', 'test-9-sast-false-positives'),
     staticOnly: argv.includes('--static-only'),
     dryRun: argv.includes('--dry-run'),
