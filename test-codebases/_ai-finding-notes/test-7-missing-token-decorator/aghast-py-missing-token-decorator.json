@@ -1,0 +1,28 @@
+{
+  "checkId": "aghast-py-missing-token-decorator",
+  "codebase": "test-7-missing-token-decorator",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 4,
+  "findings": [
+    {
+      "file": "app/routes/tasks.py",
+      "startLine": 37,
+      "lineTolerance": 5
+    },
+    {
+      "file": "app/routes/tasks.py",
+      "startLine": 46,
+      "lineTolerance": 5
+    },
+    {
+      "file": "app/routes/users.py",
+      "startLine": 35,
+      "lineTolerance": 5
+    },
+    {
+      "file": "app/routes/reports.py",
+      "startLine": 18,
+      "lineTolerance": 5
+    }
+  ]
+}

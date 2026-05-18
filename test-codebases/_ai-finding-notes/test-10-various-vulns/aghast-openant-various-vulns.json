@@ -1,0 +1,56 @@
+{
+  "checkId": "aghast-openant-various-vulns",
+  "codebase": "test-10-various-vulns",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 8,
+  "findings": [
+    {
+      "file": "routes/orders.js",
+      "startLine": 15,
+      "lineTolerance": 15,
+      "description": "Race condition (TOCTOU) in single order creation — stock check and deduction not atomic"
+    },
+    {
+      "file": "routes/users.js",
+      "startLine": 34,
+      "lineTolerance": 10,
+      "description": "Mass assignment — 'role' in allowedFields lets non-admin users escalate privileges"
+    },
+    {
+      "file": "routes/auth.js",
+      "startLine": 100,
+      "lineTolerance": 30,
+      "description": "Insecure randomness — Math.random() used for password reset tokens (may be reported at requestPasswordReset:78 or generateResetToken:127)"
+    },
+    {
+      "file": "routes/reports.js",
+      "startLine": 66,
+      "lineTolerance": 10,
+      "description": "SQL injection — raw user-supplied query passed directly to db.query()"
+    },
+    {
+      "file": "routes/reports.js",
+      "startLine": 76,
+      "lineTolerance": 10,
+      "description": "SSRF — user-controlled exportEndpoint URL fetched server-side with service credentials"
+    },
+    {
+      "file": "routes/webhooks.js",
+      "startLine": 15,
+      "lineTolerance": 15,
+      "description": "SSRF (storage) — registerWebhook stores user-supplied URL without validation"
+    },
+    {
+      "file": "routes/webhooks.js",
+      "startLine": 56,
+      "lineTolerance": 20,
+      "description": "SSRF (execution) — testWebhook fetches stored URL without validation, leaking auth headers"
+    },
+    {
+      "file": "routes/orders.js",
+      "startLine": 120,
+      "lineTolerance": 10,
+      "description": "BOLA — order fetched by ID without verifying ownership by authenticated user"
+    }
+  ]
+}

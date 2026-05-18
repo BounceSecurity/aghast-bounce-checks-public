@@ -1,0 +1,28 @@
+{
+  "checkId": "aghast-js-business-logic-bypass",
+  "codebase": "test-8-business-logic-bypass",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 4,
+  "findings": [
+    {
+      "file": "src/routes/orders.js",
+      "startLine": 5,
+      "lineTolerance": 10
+    },
+    {
+      "file": "src/routes/orders.js",
+      "startLine": 131,
+      "lineTolerance": 10
+    },
+    {
+      "file": "src/routes/payments.js",
+      "startLine": 5,
+      "lineTolerance": 10
+    },
+    {
+      "file": "src/routes/payments.js",
+      "startLine": 63,
+      "lineTolerance": 10
+    }
+  ]
+}
