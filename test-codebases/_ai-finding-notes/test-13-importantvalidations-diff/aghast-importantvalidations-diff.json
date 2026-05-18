@@ -1,0 +1,19 @@
+{
+  "checkId": "aghast-importantvalidations-diff",
+  "codebase": "test-13-importantvalidations-diff",
+  "expectedStatus": "FAIL",
+  "expectedFindingCount": 2,
+  "notes": "Diff touches execute_query (direct, missing all validations), dispatch_query (direct, has all validations = PASS), and check_rate_limit in auth.py (pulls invoke_query via call graph, missing business hours + query length). 3 Semgrep targets analyzed, 2 vulnerable.",
+  "findings": [
+    {
+      "file": "routes/execution.py",
+      "startLine": 10,
+      "lineTolerance": 10
+    },
+    {
+      "file": "routes/execution.py",
+      "startLine": 38,
+      "lineTolerance": 10
+    }
+  ]
+}

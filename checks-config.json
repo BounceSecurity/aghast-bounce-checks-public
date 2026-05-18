@@ -34,6 +34,13 @@
         "test-codebases/test-10-various-vulns"
       ],
       "enabled": true
+    },
+    {
+      "id": "aghast-importantvalidations-diff",
+      "repositories": [
+        "test-codebases/test-13-importantvalidations-diff"
+      ],
+      "enabled": true
     }
   ]
 }
