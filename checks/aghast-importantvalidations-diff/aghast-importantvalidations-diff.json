@@ -1,0 +1,13 @@
+{
+  "id": "aghast-importantvalidations-diff",
+  "name": "Important Validations before performing an AI query (Diff-filtered)",
+  "instructionsFile": "aghast-importantvalidations-diff.md",
+  "severity": "high",
+  "confidence": "medium",
+  "checkTarget": {
+    "type": "targeted",
+    "discovery": "semgrep",
+    "rules": "aghast-importantvalidations-diff.yaml",
+    "maxTargets": 9999
+  }
+}
