@@ -660,7 +660,7 @@ export async function runRegressionTest(config: RegressionConfig): Promise<RunRe
     try {
       execSync('aghast --version', { stdio: 'pipe' });
     } catch {
-      console.error('ERROR: aghast binary not found. Install with: npm install -g @bouncesecurity/aghast');
+      console.error('ERROR: aghast binary not found. Install with: npm install -g @owasp-aghast/aghast');
       process.exit(1);
     }
     console.log('Using globally installed aghast binary.\n');
