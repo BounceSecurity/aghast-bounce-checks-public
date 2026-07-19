@@ -1,8 +1,9 @@
 /**
- * Runs Semgrep rule unit tests across all check folders under checks/.
+ * Runs Semgrep- and Opengrep-rule unit tests across all check folders under checks/.
  *
  * Each check folder may contain a <id>.yaml rule and tests/ directory.
- * For each such folder, runs: semgrep --test --config <folder> <tests/>
+ * For each such folder, runs the scanner selected by the check definition:
+ * <scanner> --test --config <folder> <tests/>.
  *
  * For YAML-language rules, semgrep --test cannot distinguish rule files from
  * target files, so we fall back to running the rule directly against test files
@@ -41,6 +42,18 @@ function isYamlRule(rulePath) {
   // Match both inline [yaml] and multi-line list format
   return /languages:\s*\[yaml\]/.test(content) ||
     /languages:\s*\n\s*-\s*yaml\b/.test(content);
+}
+
+/**
+ * Returns the scanner configured for a check. Rule syntax is shared, but the
+ * test must run with the binary aghast will use in production.
+ */
+function getScanner(folderPath, folder) {
+  const definitionPath = path.join(folderPath, `${folder}.json`);
+  if (!fs.existsSync(definitionPath)) return 'semgrep';
+
+  const definition = JSON.parse(fs.readFileSync(definitionPath, 'utf8'));
+  return definition.checkTarget?.discovery === 'opengrep' ? 'opengrep' : 'semgrep';
 }
 
 /**
@@ -86,7 +99,7 @@ function parseAnnotations(testFilePath, ruleId) {
  * Runs a YAML-language rule directly and validates against annotations.
  * Returns true if all assertions pass, false otherwise.
  */
-function runYamlRuleTest(folder, rulePath, testsPath) {
+function runYamlRuleTest(folder, rulePath, testsPath, scanner) {
   const testFiles = fs.readdirSync(testsPath).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
   if (testFiles.length === 0) {
     console.error(`  No YAML test files found in ${testsPath}`);
@@ -105,11 +118,11 @@ function runYamlRuleTest(folder, rulePath, testsPath) {
       continue;
     }
 
-    // Run semgrep and collect findings
+    // Run the configured scanner and collect findings
     let results;
     try {
       const output = execSync(
-        `semgrep --config "${rulePath}" "${testFilePath}" --json --no-git-ignore`,
+        `${scanner} --config "${rulePath}" "${testFilePath}" --json --no-git-ignore`,
         { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
       );
       results = JSON.parse(output);
@@ -119,12 +132,12 @@ function runYamlRuleTest(folder, rulePath, testsPath) {
         try {
           results = JSON.parse(e.stdout);
         } catch {
-          console.error(`  Failed to parse Semgrep JSON output for ${testFile}`);
+          console.error(`  Failed to parse ${scanner} JSON output for ${testFile}`);
           allPassed = false;
           continue;
         }
       } else {
-        console.error(`  Semgrep execution failed for ${testFile}: ${e.message}`);
+        console.error(`  ${scanner} execution failed for ${testFile}: ${e.message}`);
         allPassed = false;
         continue;
       }
@@ -173,15 +186,17 @@ for (const folder of checkFolders) {
 
   tested++;
   console.log(`\n--- Testing ${folder} ---`);
+  const scanner = getScanner(folderPath, folder);
+  console.log(`  (scanner: ${scanner})`);
 
   if (isYamlRule(rulePath)) {
     console.log('  (YAML-language rule: using direct validation)');
-    if (!runYamlRuleTest(folder, rulePath, testsPath)) {
+    if (!runYamlRuleTest(folder, rulePath, testsPath, scanner)) {
       failed++;
     }
   } else {
     try {
-      execSync(`semgrep --test --config "${folderPath}" "${testsPath}"`, {
+      execSync(`${scanner} --test --config "${folderPath}" "${testsPath}"`, {
         stdio: 'inherit',
       });
     } catch {
