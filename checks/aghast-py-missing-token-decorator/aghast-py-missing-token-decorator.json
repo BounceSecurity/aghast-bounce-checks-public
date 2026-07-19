@@ -5,7 +5,7 @@
   "confidence": "high",
   "checkTarget": {
     "type": "static",
-    "discovery": "semgrep",
+    "discovery": "opengrep",
     "rules": "aghast-py-missing-token-decorator.yaml"
   }
 }

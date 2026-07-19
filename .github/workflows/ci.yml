@@ -29,8 +29,27 @@ jobs:
       - name: Install Semgrep
         run: pip install -r requirements.txt
 
-      - name: Verify Semgrep rules have test files
+      - name: Install Opengrep
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(gh release view --repo opengrep/opengrep --json tagName --jq .tagName)
+          install_dir="$HOME/.local/bin"
+          mkdir -p "$install_dir"
+          gh release download "$version" --repo opengrep/opengrep \
+            --pattern opengrep_manylinux_x86 --output "$install_dir/opengrep"
+          chmod +x "$install_dir/opengrep"
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Verify scanners
+        run: |
+          semgrep --version
+          opengrep --version
+
+      - name: Verify scanner rules have test files
         run: node scripts/verify-semgrep-tests.cjs
 
-      - name: Test Semgrep rules
+      - name: Test rules with their configured scanner
         run: node scripts/run-semgrep-rule-tests.cjs
