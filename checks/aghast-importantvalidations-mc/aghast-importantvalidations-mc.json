@@ -6,7 +6,7 @@
   "confidence": "medium",
   "checkTarget": {
     "type": "targeted",
-    "discovery": "opengrep",
+    "discovery": "semgrep",
     "rules": "aghast-importantvalidations-mc.yaml",
     "maxTargets": 9999
   }
