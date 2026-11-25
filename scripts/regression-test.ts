@@ -178,14 +178,16 @@ export function allChecksStatic(configDir: string, checkIds: string[]): boolean 
 
 export type CheckType = 'static' | 'targeted-semgrep' | 'targeted-sarif' | 'targeted-openant' | 'targeted-diff-semgrep' | 'repository';
 
-export function resolveCheckType(def: { checkTarget?: { type?: string; discovery?: string } }): CheckType {
+export function resolveCheckType(def: { checkTarget?: { type?: string; discovery?: string; diffFilter?: boolean } }): CheckType {
   const type = def.checkTarget?.type;
   const discovery = def.checkTarget?.discovery;
   if (type === 'static') return 'static';
   if (type === 'targeted') {
     if (discovery === 'sarif') return 'targeted-sarif';
     if (discovery === 'openant') return 'targeted-openant';
-    if (discovery === 'diff-semgrep') return 'targeted-diff-semgrep';
+    if (discovery === 'diff-semgrep' || (discovery === 'semgrep' && def.checkTarget?.diffFilter === true)) {
+      return 'targeted-diff-semgrep';
+    }
     return 'targeted-semgrep';
   }
   return 'repository';
@@ -194,7 +196,7 @@ export function resolveCheckType(def: { checkTarget?: { type?: string; discovery
 export function getCheckType(configDir: string, checkId: string): CheckType {
   const defPath = join(configDir, 'checks', checkId, `${checkId}.json`);
   try {
-    const def = loadJSON<{ checkTarget?: { type?: string; discovery?: string } }>(defPath);
+    const def = loadJSON<Parameters<typeof resolveCheckType>[0]>(defPath);
     return resolveCheckType(def);
   } catch {
     return 'repository';
