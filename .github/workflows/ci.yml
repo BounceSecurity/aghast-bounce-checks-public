@@ -35,11 +35,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version=$(gh release view --repo opengrep/opengrep --json tagName --jq .tagName)
+          version=v2.1.0
           install_dir="$HOME/.local/bin"
           mkdir -p "$install_dir"
           gh release download "$version" --repo opengrep/opengrep \
-            --pattern opengrep_manylinux_x86 --output "$install_dir/opengrep"
+            --pattern opengrep_linux_x86 --output "$install_dir/opengrep"
           chmod +x "$install_dir/opengrep"
           echo "$install_dir" >> "$GITHUB_PATH"
 
